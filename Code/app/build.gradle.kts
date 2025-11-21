@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.team2_game"
+    namespace = "com.example.myapplication"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.team2_game"
+        applicationId = "com.example.myapplication"
         minSdk = 34
         targetSdk = 36
         versionCode = 1
