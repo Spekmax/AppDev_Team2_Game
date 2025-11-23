@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    //Once the gecko's are placed this will run the actual game
     private fun onCellClicked(row: Int, col: Int) {
         val hit = game.takeTurn(row, col)
 
