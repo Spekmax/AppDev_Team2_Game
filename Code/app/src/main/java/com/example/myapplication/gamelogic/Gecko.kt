@@ -1,7 +1,4 @@
 package com.example.myapplication.gamelogic
-
-enum class Orientation { HORIZONTAL, VERTICAL }
-
 class Gecko(
     val name: String,
     val size: Int,
