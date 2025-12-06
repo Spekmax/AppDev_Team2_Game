@@ -10,6 +10,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.gridlayout.widget.GridLayout
 import com.example.myapplication.gamelogic.*
+import com.example.myapplication.gamelogic.ComputerPlayer
+import android.os.Handler
+import android.os.Looper
 
 import kotlin.math.min
 
@@ -17,8 +20,16 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var game: Game
     private lateinit var logoutButton: Button
-    private lateinit var boardGrid: GridLayout
-    private lateinit var tileViews: Array<Array<ImageView>>
+
+    private lateinit var playerBoardGrid: GridLayout
+
+    private lateinit var attackBoardGrid: GridLayout
+
+    private lateinit var playerTileViews: Array<Array<ImageView>>
+
+    private lateinit var attackTileViews: Array<Array<ImageView>>
+
+    private lateinit var computerPlayer: ComputerPlayer
 
     private lateinit var btnRotate: ImageButton
     private lateinit var btnConfirm: ImageButton
@@ -67,7 +78,8 @@ class MainActivity : AppCompatActivity() {
 
         // Now we can safely get view references
         logoutButton = findViewById(R.id.logoutButton)
-        boardGrid = findViewById(R.id.boardGrid)
+        playerBoardGrid = findViewById(R.id.playerBoardGrid)
+        attackBoardGrid = findViewById(R.id.attackBoardGrid)
         btnRotate = findViewById(R.id.btnRotate)
         btnConfirm = findViewById(R.id.btnConfirm)
         btnAttack = findViewById(R.id.btnAttack)
@@ -91,9 +103,16 @@ class MainActivity : AppCompatActivity() {
         val player2 = Player("Computer")
         game = Game(player1, player2)
 
+        computerPlayer = ComputerPlayer()
+        computerPlayer.placeGeckosRandomly(game.player2.board)
+
+        debugShowComputerGeckos() //uncomment to see computer's geckos in logs
+
         setupBoard()
         setupButtons()
         setupGeckoSelector()
+
+        switchToBoard(showPlayerBoard = true)
     }
 
     /* ---------------------------- GECKO SELECTOR UI ---------------------------- */
@@ -137,32 +156,48 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupBoard() {
         val size = 10
-        tileViews = Array(size) { Array(size) { ImageView(this) } }
+        playerTileViews = Array(size) { Array(size) { ImageView(this) } }
+        attackTileViews = Array(size) { Array(size) { ImageView(this) } }
 
-        val boardContainer = findViewById<View>(R.id.boardContainer)
+        val boardContainer = findViewById<View>(R.id.boardsFrameLayout)
 
         boardContainer.post {
             val tileSize = min(boardContainer.measuredWidth, boardContainer.measuredHeight) / size
 
-            boardGrid.removeAllViews()
-            boardGrid.rowCount = size
-            boardGrid.columnCount = size
+            // Setup PLAYER BOARD (shows your geckos)
+            setupSingleBoard(playerBoardGrid, playerTileViews, tileSize, size, isPlayerBoard = true)
 
-            for (r in 0 until size) {
-                for (c in 0 until size) {
-                    val tile = ImageView(this).apply {
-                        layoutParams = GridLayout.LayoutParams().apply {
-                            width = tileSize
-                            height = tileSize
-                            setMargins(1, 1, 1, 1)
-                        }
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                        setImageResource(R.drawable.tile)
-                        setOnClickListener { onCellClicked(r, c) }
+            // Setup ATTACK BOARD (shows your attacks)
+            setupSingleBoard(attackBoardGrid, attackTileViews, tileSize, size, isPlayerBoard = false)
+        }
+    }
+
+    private fun setupSingleBoard(
+        grid: GridLayout,
+        tiles: Array<Array<ImageView>>,
+        tileSize: Int,
+        size: Int,
+        isPlayerBoard: Boolean
+    ) {
+        grid.removeAllViews()
+        grid.rowCount = size
+        grid.columnCount = size
+
+        for (r in 0 until size) {
+            for (c in 0 until size) {
+                val tile = ImageView(this).apply {
+                    layoutParams = GridLayout.LayoutParams().apply {
+                        width = tileSize
+                        height = tileSize
+                        setMargins(1, 1, 1, 1)
                     }
-                    tileViews[r][c] = tile
-                    boardGrid.addView(tile)
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    setImageResource(R.drawable.tile)
+
+                    setOnClickListener { onCellClicked(r, c) }
                 }
+                tiles[r][c] = tile
+                grid.addView(tile)
             }
         }
     }
@@ -216,13 +251,14 @@ class MainActivity : AppCompatActivity() {
             geckosPlaced++
             if (geckosPlaced >= totalGeckos) {
                 gameState = GameState.PLAYER_TURN
-                Toast.makeText(this, "All geckos placed!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "All geckos placed! Your turn to attack", Toast.LENGTH_SHORT).show()
             }
         }
 
         btnAttack.setOnClickListener {
             if (gameState == GameState.PLAYER_TURN) {
                 gameState = GameState.SELECTING_ATTACK_TILE
+                switchToBoard(showPlayerBoard = false)
                 Toast.makeText(this, "Tap a tile to attack!", Toast.LENGTH_SHORT).show()
             }
         }
@@ -235,7 +271,6 @@ class MainActivity : AppCompatActivity() {
             GameState.PLACING -> showGeckoPreview(row, col)
             GameState.SELECTING_ATTACK_TILE -> {
                 handlePlayerAttack(row, col)
-                gameState = GameState.PLAYER_TURN
             }
             else -> {}
         }
@@ -278,17 +313,27 @@ class MainActivity : AppCompatActivity() {
         }
 
         previewCells.forEach { (r, c) ->
-            tileViews[r][c].alpha = 0.5f
-            tileViews[r][c].setImageResource(R.drawable.tile)
+            playerTileViews[r][c].alpha = 0.5f
+            playerTileViews[r][c].setImageResource(R.drawable.tile)
         }
     }
 
     private fun clearPreview() {
         previewCells.forEach { (r, c) ->
             if (!game.player1.board.grid[r][c].hasGecko) {
-                tileViews[r][c].alpha = 1f
-                tileViews[r][c].setImageResource(R.drawable.tile)
+                playerTileViews[r][c].alpha = 1f
+                playerTileViews[r][c].setImageResource(R.drawable.tile)
             }
+        }
+    }
+
+    private fun switchToBoard(showPlayerBoard: Boolean) {
+        if (showPlayerBoard) {
+            playerBoardGrid.visibility = View.VISIBLE
+            attackBoardGrid.visibility = View.GONE
+        } else {
+            playerBoardGrid.visibility = View.GONE
+            attackBoardGrid.visibility = View.VISIBLE
         }
     }
 
@@ -322,7 +367,7 @@ class MainActivity : AppCompatActivity() {
                 cell.hasGecko = true
                 gecko.positions.add(cell)
 
-                tileViews[rr][cc].apply {
+                playerTileViews[rr][cc].apply {
                     rotation = 0f
                     alpha = 1f
                     scaleType = ImageView.ScaleType.FIT_XY
@@ -337,12 +382,11 @@ class MainActivity : AppCompatActivity() {
                 cell.hasGecko = true
                 gecko.positions.add(cell)
 
-                tileViews[r][c].apply {
+                playerTileViews[r][c].apply {
                     alpha = 1f
                     scaleType = ImageView.ScaleType.FIT_XY
                     setImageResource(pieces[i])
-                    rotation =
-                        if (currentOrientation == Orientation.HORIZONTAL) -90f else 0f
+                    rotation = if (currentOrientation == Orientation.HORIZONTAL) -90f else 0f
                 }
             }
         }
@@ -354,8 +398,13 @@ class MainActivity : AppCompatActivity() {
     /* ---------------------------- ATTACK ---------------------------- */
 
     private fun handlePlayerAttack(row: Int, col: Int) {
-        val hit = game.takeTurn(row, col)
-        val tile = tileViews[row][col]
+        if (game.player2.board.grid[row][col].isHit) {
+            Toast.makeText(this, "Already attacked this cell!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val hit = game.player2.board.attack(row, col)
+        val tile = attackTileViews[row][col]
 
         val frames = if (hit)
             intArrayOf(R.drawable.hit_1, R.drawable.hit_2, R.drawable.hit_3)
@@ -367,6 +416,19 @@ class MainActivity : AppCompatActivity() {
         game.checkWinner()?.let {
             gameState = GameState.GAME_OVER
             Toast.makeText(this, "${it.name} wins!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (hit) {
+            gameState = GameState.PLAYER_TURN
+            Toast.makeText(this, "Hit! Go again!", Toast.LENGTH_SHORT).show()
+        } else {
+            gameState = GameState.COMPUTER_TURN
+            Toast.makeText(this, "Miss! Computer's turn", Toast.LENGTH_SHORT).show()
+
+            Handler(Looper.getMainLooper()).postDelayed({
+                executeComputerTurn()
+            }, 1500)
         }
     }
 
@@ -379,5 +441,83 @@ class MainActivity : AppCompatActivity() {
                 if (index < frames.size) tile.postDelayed(this, delay)
             }
         })
+    }
+
+    private fun executeComputerTurn() {
+        if (gameState != GameState.COMPUTER_TURN) return
+
+        switchToBoard(showPlayerBoard = true)
+
+        val (row, col) = computerPlayer.decideNextAttack()
+
+        val hit = game.player1.board.attack(row, col)
+
+        val geckoDefeated = game.player1.board.geckos.any { gecko ->
+            gecko.positions.any { it.row == row && it.column == col }
+                    && gecko.isDefeated
+        }
+
+        computerPlayer.processAttackResult(row, col, hit, geckoDefeated)
+
+        val tile = playerTileViews[row][col]
+        val frames = if (hit)
+            intArrayOf(R.drawable.hit_1, R.drawable.hit_2, R.drawable.hit_3)
+        else
+            intArrayOf(R.drawable.miss_1, R.drawable.miss_2, R.drawable.miss_3)
+
+        animateTile(tile, frames)
+
+        val message = if (hit) "Computer hit your gecko at ($row, $col)!"
+        else "Computer missed at ($row, $col)"
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+
+        game.checkWinner()?.let {
+            gameState = GameState.GAME_OVER
+            Toast.makeText(this, "${it.name} wins!", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // turn management system
+        if (hit) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                executeComputerTurn()
+            }, 1500)
+        } else {
+            gameState = GameState.PLAYER_TURN
+            Toast.makeText(this, "Your turn!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /* ---------------------------- DEBUG, SHOW ENEMY GECKOS ---------------------------- */
+    private fun debugShowComputerGeckos() {
+        println("========== COMPUTER'S GECKOS ==========")
+
+        val computerBoard = game.player2.board
+
+        computerBoard.geckos.forEachIndexed { index, gecko ->
+            println("\nGecko ${index + 1}: ${gecko.name}")
+            println("  Size: ${gecko.size}")
+            println("  Orientation: ${gecko.orientation}")
+            println("  Positions:")
+
+            gecko.positions.forEach { cell ->
+                println("    - Row ${cell.row}, Col ${cell.column}")
+            }
+        }
+
+        println("\n========== VISUAL GRID ==========")
+        for (row in 0 until 10) {
+            val rowString = buildString {
+                for (col in 0 until 10) {
+                    if (computerBoard.grid[row][col].hasGecko) {
+                        append("G ")
+                    } else {
+                        append(". ")
+                    }
+                }
+            }
+            println("Row $row: $rowString")
+        }
+        println("=======================================")
     }
 }

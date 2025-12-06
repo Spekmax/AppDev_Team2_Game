@@ -31,16 +31,31 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <androidx.gridlayout.widget.GridLayout
-            android:id="@+id/boardGrid"
+        <FrameLayout
+            android:id="@+id/boardsFrameLayout"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:columnCount="10"
-            android:rowCount="10"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <androidx.gridlayout.widget.GridLayout
+                android:id="@+id/playerBoardGrid"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:columnCount="10"
+                android:rowCount="10"
+                android:visibility="visible" />
+
+            <androidx.gridlayout.widget.GridLayout
+                android:id="@+id/attackBoardGrid"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:columnCount="10"
+                android:rowCount="10"
+                android:visibility="gone" />
+        </FrameLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
